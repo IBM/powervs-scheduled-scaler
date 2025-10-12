@@ -98,6 +98,8 @@ Before using the project, ensure you have:
 ]
 ```
 
+![usage.gif](usage.gif))
+
 ---
 
 ## 🕹️ Usage
