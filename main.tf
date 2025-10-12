@@ -38,6 +38,7 @@ locals {
       ram           = inst.memory
     }
   ])
+  project_name = var.code_engine_project_name == null ? var.prefix : var.code_engine_project_name
 }
 
 ##############################################################################
@@ -46,7 +47,7 @@ locals {
 
 resource "ibm_iam_service_id" "sid" {
   name        = "${var.prefix}-sid"
-  description = "Do not delete! Used as operator to manage service bindings of Code Engine project '${var.code_engine_project_name == null ? var.prefix : var.code_engine_project_name}'"
+  description = "Do not delete! Used as operator to manage service bindings of Code Engine project '${local.project_name}'"
 }
 
 resource "ibm_iam_service_policy" "power_iaas_policy" {
@@ -123,7 +124,7 @@ resource "ibm_iam_service_api_key" "key" {
 
   name           = "${var.prefix}-key"
   iam_service_id = ibm_iam_service_id.sid.iam_id
-  description    = "API key to establish an integration with container registry location ${var.ibmcloud_region} for Code Engine project ${var.code_engine_project_name == null ? var.prefix : var.code_engine_project_name}"
+  description    = "API key to establish an integration with container registry location ${var.ibmcloud_region} for Code Engine project ${local.project_name}"
 }
 
 # ##############################################################################
@@ -131,7 +132,7 @@ resource "ibm_iam_service_api_key" "key" {
 # ##############################################################################
 
 resource "ibm_code_engine_project" "code_engine_project_instance" {
-  name              = var.code_engine_project_name == null ? var.prefix : var.code_engine_project_name
+  name              = local.project_name
   resource_group_id = module.resource_group.resource_group_id
 }
 
@@ -264,9 +265,9 @@ resource "null_resource" "build_function_scale_down" {
 }
 
 data "ibm_code_engine_function" "scale_down_function" {
-    depends_on = [ null_resource.build_function_scale_down ]
-    name = "${var.prefix}-down-fn"
-    project_id = ibm_code_engine_project.code_engine_project_instance.id
+  depends_on = [null_resource.build_function_scale_down]
+  name       = "${var.prefix}-down-fn"
+  project_id = ibm_code_engine_project.code_engine_project_instance.id
 }
 
 resource "null_resource" "build_function_scale_up" {
