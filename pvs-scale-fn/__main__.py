@@ -1,14 +1,27 @@
 import json
 import os
 import re
+import logging
+from typing import Optional, Any
 
 import requests
 from ibm_cloud_sdk_core import BaseService, ApiException
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 from ibm_cloud_sdk_core.utils import strip_extra_slashes
-from requests import JSONDecodeError
+from requests import JSONDecodeError, RequestException
 
-def get_service_url_for_region(region: str) -> str:
+# --- Setup logging -------------------------------------------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
+# --- Utility functions ---------------------------------------------------------
+
+def get_service_url_for_region(region: str) -> Optional[str]:
     """
     Returns the service URL associated with the specified region.
     :param str region: a string representing the region
@@ -32,7 +45,7 @@ def get_service_url_for_region(region: str) -> str:
     }
     return REGIONAL_ENDPOINTS.get(region, None)
 
-def get_service_instance_from_crn(crn: str) -> str | None:
+def get_service_instance_from_crn(crn: str) -> Optional[str]:
     """
     Extracts the UUID (service_instance) from an IBM Cloud CRN.
 
@@ -47,12 +60,12 @@ def get_service_instance_from_crn(crn: str) -> str | None:
         str: The extracted UUID if found, otherwise None.
     """
     if not crn:
-        raise ValueError('The crn is required')
+        raise ValueError('The CRN is required')
     pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     match = re.search(pattern, crn, re.IGNORECASE)
     return match.group(0) if match else None
 
-def get_json_error(status: int, title: str, message: str):
+def get_json_error(status: int, title: str, message: str) -> dict[str, Any]:
     """
     Create a JSON error response.
 
@@ -67,6 +80,7 @@ def get_json_error(status: int, title: str, message: str):
     Returns:
         dict: A dictionary containing the HTTP response details including headers, status code, and error body.
     """
+    logger.error(f"{title}: {message}")
     return {
         "headers": {
             "Content-Type": "application/json",
@@ -78,7 +92,7 @@ def get_json_error(status: int, title: str, message: str):
         },
     }
 
-def return_json_body(body: dict, code: int):
+def return_json_body(body: dict, code: int) -> dict[str, Any]:
     """
     Constructs a dictionary representing a JSON response.
 
@@ -101,35 +115,94 @@ def return_json_body(body: dict, code: int):
         }
     }
 
-def main(params):
-    config = json.loads(os.getenv("pvs_scale_config"))
-    authenticator = IAMAuthenticator(os.getenv("IBM_CLOUD_API_KEY"))
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {authenticator.token_manager.get_token()}",
-        "CRN": os.getenv("CRN")
-    }
-    path_param_keys = ['cloud_instance_id', 'pvm_instance_id']
-    cloud_instance_id = get_service_instance_from_crn(os.getenv("CRN"))
-    output = []
-    for instance in config:
-        pvm_instance_id = instance["instance_id"]
-        path_param_values = BaseService.encode_path_vars(cloud_instance_id, pvm_instance_id)
-        path_param_dict = dict(zip(path_param_keys, path_param_values))
-        url = '/cloud-instances/{cloud_instance_id}/pvm-instances/{pvm_instance_id}'.format(**path_param_dict)
-        url = strip_extra_slashes(get_service_url_for_region(os.getenv("POWERVS_REGION")) + url)
-        body = {
-            "processors": instance["cpu"],
-            "memory": instance["ram"]
-        }
-        response = requests.put(url=url, data=json.dumps(body), headers=headers)
-        if 200 <= response.status_code <= 204:
-            try:
-                result = response.json(strict=False)
-                output.append({pvm_instance_id: {"message": "Scaled completed successfully", "code": response.status_code}})
-            except JSONDecodeError as e:
-                return get_json_error(e.status_code, "error", e.message)
-        else:
-            output.append({pvm_instance_id: {"message": response.content, "code": response.status_code}})
+# -------------------------------------------
+# Main entry point
+# -------------------------------------------
 
-    return return_json_body(output, 200)
+def main(params) -> dict[str, Any]:
+    """Entrypoint for IBM Cloud Function or local execution."""
+    try:
+        api_key = os.getenv("IBM_CLOUD_API_KEY")
+        crn = os.getenv("CRN")
+        region = os.getenv("POWERVS_REGION")
+        config_env = os.getenv("pvs_scale_config")
+
+        if not all([api_key, crn, region, config_env]):
+            missing = [k for k, v in {
+                "IBM_CLOUD_API_KEY": api_key,
+                "CRN": crn,
+                "POWERVS_REGION": region,
+                "pvs_scale_config": config_env,
+            }.items() if not v]
+            return get_json_error(400, "MissingConfiguration", f"Missing env vars: {', '.join(missing)}")
+
+        try:
+            config = json.loads(config_env)
+            if not isinstance(config, list):
+                raise ValueError("Configuration must be a list of instances.")
+        except (ValueError, json.JSONDecodeError) as e:
+            return get_json_error(400, "InvalidConfiguration", str(e))
+
+        authenticator = IAMAuthenticator(api_key)
+        token = authenticator.token_manager.get_token()
+        if not token:
+            return get_json_error(401, "AuthenticationError", "Failed to obtain IAM token")
+
+        service_url = get_service_url_for_region(region)
+        if not service_url:
+            return get_json_error(400, "InvalidRegion", f"Unknown region: {region}")
+
+        cloud_instance_id = get_service_instance_from_crn(crn)
+        if not cloud_instance_id:
+            return get_json_error(400, "InvalidCRN", f"Cannot extract instance ID from CRN: {crn}")
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {token}",
+            "CRN": crn
+        }
+
+        path_param_keys = ['cloud_instance_id', 'pvm_instance_id']
+        output = []
+        for instance in config:
+            pvm_instance_id = instance.get("instance_id")
+            cpu = instance.get("cpu")
+            ram = instance.get("ram")
+
+            if not all([pvm_instance_id, cpu, ram]):
+                output.append({
+                    "instance_id": pvm_instance_id or "unknown",
+                    "message": "Missing instance_id, cpu, or ram",
+                    "code": 400,
+                })
+                continue
+
+            path_param_values = BaseService.encode_path_vars(cloud_instance_id, pvm_instance_id)
+            path_param_dict = dict(zip(path_param_keys, path_param_values))
+            url = '/cloud-instances/{cloud_instance_id}/pvm-instances/{pvm_instance_id}'.format(**path_param_dict)
+            url = strip_extra_slashes(get_service_url_for_region(os.getenv("POWERVS_REGION")) + url)
+
+            body = {"processors": cpu, "memory": ram}
+            try:
+                response = requests.put(url=url, json=json.dumps(body), headers=headers, timeout=15)
+                if 200 <= response.status_code <= 204:
+                    try:
+                        result = response.json(strict=False)
+                        message = result.get("message", "Scaled successfully")
+                        output.append({pvm_instance_id: {"message": message, "code": response.status_code}})
+                    except JSONDecodeError as e:
+                        return get_json_error(e.status_code, "error", "no JSON in response")
+                else:
+                    logger.warning(f"Scaling failed for {pvm_instance_id}: {response.text}")
+                    output.append({pvm_instance_id: {"message": response.text, "code": response.status_code}})
+            except RequestException as e:
+                logger.exception(f"Request error for {pvm_instance_id}")
+                output.append({
+                    pvm_instance_id: {"message": str(e), "code": 500}
+                })
+
+        return return_json_body(output, 200)
+
+    except Exception as e:
+        logger.exception("Unexpected error in main")
+        return get_json_error(500, "InternalError", str(e))
