@@ -154,7 +154,7 @@ Limit permissions to only required PowerVS instances.
 
 ## 📜 License
 
-This project is licensed under the MIT License. See LICENSE file
+This project is licensed under the MIT License. See [LICENSE](LICENSE) file
 
 ---
 
