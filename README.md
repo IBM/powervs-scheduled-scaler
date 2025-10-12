@@ -125,6 +125,7 @@ Once deployed:
 ```bash
 .
 ├── LICENSE
+├── README.md
 ├── main.tf
 ├── providers.tf
 ├── pvs-scale-current-fn
@@ -133,7 +134,8 @@ Once deployed:
 ├── pvs-scale-fn
 │   ├── __main__.py
 │   └── requirements.txt
-├── README.md
+├── terraform.tfvars.template
+├── usage.gif
 ├── variables.tf
 └── versions.tf
 ```
