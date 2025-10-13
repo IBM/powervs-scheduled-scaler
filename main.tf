@@ -167,7 +167,6 @@ resource "ibm_code_engine_config_map" "app_config_map" {
 }
 
 resource "null_resource" "build_function_current_state" {
-  depends_on = [ibm_iam_service_api_key.key]
   provisioner "local-exec" {
     command = <<COMMAND
       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
@@ -188,7 +187,7 @@ resource "null_resource" "build_function_current_state" {
   }
 
   triggers = {
-    ibmcloud_api_key = ibm_iam_service_api_key.key.apikey
+    ibmcloud_api_key = var.ibmcloud_api_key
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
@@ -208,7 +207,7 @@ resource "null_resource" "build_function_current_state" {
        ibmcloud ce fn delete --name ${self.triggers.function_name} --quiet --force
        json_file="${path.module}/${self.triggers.function_name}.json"
        if [ ! -f "$json_file" ]; then
-        echo "File $json_file non trovato"
+        echo "File $json_file not found"
         exit 0
        fi
        namespace=$(jq -r '.code_reference | capture("cr://[^/]+/(?<namespace>[^/]+)/.*") | .namespace' "$json_file")
@@ -220,7 +219,6 @@ resource "null_resource" "build_function_current_state" {
 }
 
 resource "null_resource" "build_function_scale_down" {
-  depends_on = [ibm_iam_service_api_key.key]
   provisioner "local-exec" {
     command = <<COMMAND
       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
@@ -242,7 +240,7 @@ resource "null_resource" "build_function_scale_down" {
   }
 
   triggers = {
-    ibmcloud_api_key = ibm_iam_service_api_key.key.apikey
+    ibmcloud_api_key = var.ibmcloud_api_key
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
@@ -272,51 +270,29 @@ data "ibm_code_engine_function" "scale_down_function" {
   project_id = ibm_code_engine_project.code_engine_project_instance.project_id
 }
 
-resource "null_resource" "build_function_scale_up" {
-  depends_on = [null_resource.build_function_scale_down, ibm_iam_service_api_key.key]
-  provisioner "local-exec" {
-    command = <<COMMAND
-      ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-      ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
-      OUTPUT=$(ibmcloud code-engine fn create \
-        -n "${self.triggers.function_name}" \
-        -v project --quiet \
-        --runtime python-3.13 \
-        --cpu 0.25 \
-        --memory 1G \
-        --env-from-configmap "${self.triggers.fn_config_map}" \
-        --env-from-configmap "${self.triggers.pvs_config_map}" \
-        --env-from-secret="${self.triggers.fn_secret}" \
-        --code-bundle "${self.triggers.private_image}" \
-        --code-bundle-secret "${self.triggers.cr_secret}" \
-        --output json) || exit 1
-      echo "$OUTPUT" > "${path.module}/${self.triggers.function_name}.json"
-    COMMAND
+resource "ibm_code_engine_function" "scale_up_function" {
+  depends_on = [null_resource.build_function_scale_down]
+
+  project_id         = ibm_code_engine_project.code_engine_project_instance.project_id
+  name               = "${var.prefix}-up-fn"
+  runtime            = "python-3.13"
+  code_reference     = replace(data.ibm_code_engine_function.scale_down_function.code_reference, "cr://", "")
+  code_binary        = true
+  code_secret        = data.ibm_code_engine_function.scale_down_function.code_secret
+  scale_cpu_limit    = "0.25"
+  scale_memory_limit = "1G"
+
+  run_env_variables {
+    reference = ibm_code_engine_config_map.app_config_map.name
+    type = "config_map_full_reference"
   }
-
-  triggers = {
-    ibmcloud_api_key = ibm_iam_service_api_key.key.apikey
-    region           = var.ibmcloud_region
-    resource_group   = module.resource_group.resource_group_id
-    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
-    function_name    = "${var.prefix}-up-fn"
-    folder           = "${path.module}/${var.prefix}-fn"
-    fn_config_map    = ibm_code_engine_config_map.app_config_map.name
-    pvs_config_map   = ibm_code_engine_config_map.ce_scale_up_config_map.name
-    fn_secret        = ibm_code_engine_secret.app_secret.name
-    private_image    = replace(data.ibm_code_engine_function.scale_down_function.code_reference, "cr://", "")
-    cr_secret        = data.ibm_code_engine_function.scale_down_function.code_secret
-
-    folder_hash = sha256(join("", [for f in fileset("${path.module}/${var.prefix}-fn", "**") : filemd5("${path.module}/${var.prefix}-fn/${f}")]))
+  run_env_variables {
+    reference = ibm_code_engine_config_map.ce_scale_up_config_map.name
+    type = "config_map_full_reference"
   }
-
-  provisioner "local-exec" {
-    when    = destroy
-    command = <<COMMAND
-       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-       ibmcloud ce fn delete --name ${self.triggers.function_name} --quiet --force --inf
-       rm -f "${path.module}/${self.triggers.function_name}.json"
-     COMMAND
+  run_env_variables {
+    reference = ibm_code_engine_secret.app_secret.name
+    type = "secret_full_reference"
   }
 }
 
@@ -337,9 +313,8 @@ resource "ibm_code_engine_config_map" "ce_scale_down_config_map" {
 
 resource "null_resource" "post_configuration" {
   depends_on = [
-    ibm_iam_service_api_key.key,
     null_resource.build_function_scale_down,
-    null_resource.build_function_scale_up
+    ibm_code_engine_function.scale_up_function
   ]
   provisioner "local-exec" {
     command = <<COMMAND
@@ -361,7 +336,7 @@ resource "null_resource" "post_configuration" {
   }
 
   triggers = {
-    ibmcloud_api_key = ibm_iam_service_api_key.key.apikey
+    ibmcloud_api_key = var.ibmcloud_api_key
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
