@@ -184,7 +184,7 @@ def main(params) -> dict[str, Any]:
 
             body = {"processors": cpu, "memory": ram}
             try:
-                response = requests.put(url=url, json=json.dumps(body), headers=headers, timeout=15)
+                response = requests.put(url=url, data=json.dumps(body), headers=headers, timeout=15)
                 if 200 <= response.status_code <= 204:
                     try:
                         result = response.json(strict=False)
