@@ -191,13 +191,13 @@ resource "null_resource" "build_function_current_state" {
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
-    function_name    = "${var.prefix}-current-fn"
-    folder           = "${path.module}/${var.prefix}-current-fn"
+    function_name    = "${var.prefix}-current-state-fn"
+    folder           = "${path.module}/${var.prefix}-current-state-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
     fn_secret        = ibm_code_engine_secret.app_secret.name
     cr_secret        = ibm_code_engine_secret.cr_secret.name
 
-    folder_hash = sha256(join("", [for f in fileset("${path.module}/${var.prefix}-current-fn", "**") : filemd5("${path.module}/${var.prefix}-current-fn/${f}")]))
+    folder_hash = sha256(join("", [for f in fileset("${path.module}/${var.prefix}-current-state-fn", "**") : filemd5("${path.module}/${var.prefix}-current-state-fn/${f}")]))
   }
 
   provisioner "local-exec" {
@@ -223,7 +223,7 @@ resource "null_resource" "build_function_scale_down" {
     command = <<COMMAND
       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
       ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
-      OUTPUT=$(ibmcloud code-engine fn create \
+      ibmcloud code-engine fn create \
         -n "${self.triggers.function_name}" \
         -v project --wait --wait-timeout 300 --quiet \
         --runtime python-3.13 \
@@ -233,9 +233,7 @@ resource "null_resource" "build_function_scale_down" {
         --env-from-configmap "${self.triggers.fn_config_map}" \
         --env-from-configmap "${self.triggers.pvs_config_map}" \
         --env-from-secret "${self.triggers.fn_secret}" \
-        --code-bundle-secret "${self.triggers.cr_secret}" \
-        --output json) || exit 1
-      echo "$OUTPUT" > "${path.module}/${self.triggers.function_name}.json"
+        --code-bundle-secret "${self.triggers.cr_secret}" || exit 1
      COMMAND
   }
 
@@ -259,7 +257,6 @@ resource "null_resource" "build_function_scale_down" {
     command = <<COMMAND
        ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
        ibmcloud ce fn delete --name ${self.triggers.function_name} --quiet --force --inf
-       rm -f "${path.module}/${self.triggers.function_name}.json"
      COMMAND
   }
 }
