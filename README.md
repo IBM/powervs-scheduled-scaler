@@ -102,6 +102,25 @@ Before using the project, ensure you have:
 
 ---
 
+## 🧹 Destroying / Cleaning Up Resources
+
+If you no longer need the resources deployed by this project, you can destroy them safely using Terraform. Follow these steps:
+
+1. **Navigate to the Terraform project directory** (where your `main.tf`, `providers.tf`, etc. are located).
+2. **Run terraform destroy**
+
+   ```bash
+   terraform destroy --auto-approve
+   ```
+
+1. **Remember to hard delete Code Engine Project**
+
+   ```bash
+   ibmcloud ce proj delete --name pvs-scale --hard
+   ```
+
+---
+
 ## 🕹️ Usage
 
 Once deployed:
