@@ -159,7 +159,7 @@ resource "ibm_code_engine_config_map" "app_config_map" {
   name       = "${var.prefix}-config-map"
   data = {
     "CRN"                             = data.ibm_pi_workspace.pvs_workspace.pi_workspace_details[0].crn
-    "CODE_ENGINE_PROJECT_NAME"        = ibm_code_engine_project.code_engine_project_instance.name
+    "CODE_ENGINE_PROJECT_NAME"        = local.project_name
     "CODE_ENGINE_RESOURCE_GROUP_NAME" = module.resource_group.resource_group_name
     "CODE_ENGINE_REGION"              = var.ibmcloud_region
     "POWERVS_REGION"                  = var.ibmcloud_region
@@ -170,19 +170,20 @@ resource "null_resource" "build_function_current_state" {
   depends_on = [ibm_iam_service_api_key.key]
   provisioner "local-exec" {
     command = <<COMMAND
-       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-       ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
-       ibmcloud code-engine fn create \
-          --name "${self.triggers.function_name}" \
-          -v public --wait --wait-timeout 300 --quiet \
-          --runtime python-3.13 \
-          --build-source "${self.triggers.folder}" \
-          --cpu 0.25 \
-          --memory 1G \
-          --env-from-configmap="${self.triggers.fn_config_map}" \
-          --env-from-secret="${self.triggers.fn_secret}" \
-          --code-bundle-secret "${self.triggers.cr_secret}" \
-          --output json > "${path.module}/${self.triggers.function_name}.json"
+      ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
+      ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
+      OUTPUT=$(ibmcloud code-engine fn create \
+        --name "${self.triggers.function_name}" \
+        -v public --wait --wait-timeout 300 --quiet \
+        --runtime python-3.13 \
+        --build-source "${self.triggers.folder}" \
+        --cpu 0.25 \
+        --memory 1G \
+        --env-from-configmap="${self.triggers.fn_config_map}" \
+        --env-from-secret="${self.triggers.fn_secret}" \
+        --code-bundle-secret "${self.triggers.cr_secret}" \
+        --output json) || exit 1
+      echo "$OUTPUT" > "${path.module}/${self.triggers.function_name}.json"
      COMMAND
   }
 
@@ -190,7 +191,7 @@ resource "null_resource" "build_function_current_state" {
     ibmcloud_api_key = ibm_iam_service_api_key.key.apikey
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
-    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.id
+    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
     function_name    = "${var.prefix}-current-fn"
     folder           = "${path.module}/${var.prefix}-current-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
@@ -222,20 +223,21 @@ resource "null_resource" "build_function_scale_down" {
   depends_on = [ibm_iam_service_api_key.key]
   provisioner "local-exec" {
     command = <<COMMAND
-       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-       ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
-       ibmcloud code-engine fn create \
-          -n "${self.triggers.function_name}" \
-          -v project --wait --wait-timeout 300 --quiet \
-          --runtime python-3.13 \
-          --build-source "${self.triggers.folder}" \
-          --cpu 0.25 \
-          --memory 1G \
-          --env-from-configmap "${self.triggers.fn_config_map}" \
-          --env-from-configmap "${self.triggers.pvs_config_map}" \
-          --env-from-secret "${self.triggers.fn_secret}" \
-          --code-bundle-secret "${self.triggers.cr_secret}" \
-          --output json > "${path.module}/${self.triggers.function_name}.json"
+      ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
+      ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
+      OUTPUT=$(ibmcloud code-engine fn create \
+        -n "${self.triggers.function_name}" \
+        -v project --wait --wait-timeout 300 --quiet \
+        --runtime python-3.13 \
+        --build-source "${self.triggers.folder}" \
+        --cpu 0.25 \
+        --memory 1G \
+        --env-from-configmap "${self.triggers.fn_config_map}" \
+        --env-from-configmap "${self.triggers.pvs_config_map}" \
+        --env-from-secret "${self.triggers.fn_secret}" \
+        --code-bundle-secret "${self.triggers.cr_secret}" \
+        --output json) || exit 1
+      echo "$OUTPUT" > "${path.module}/${self.triggers.function_name}.json"
      COMMAND
   }
 
@@ -243,7 +245,7 @@ resource "null_resource" "build_function_scale_down" {
     ibmcloud_api_key = ibm_iam_service_api_key.key.apikey
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
-    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.id
+    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
     function_name    = "${var.prefix}-down-fn"
     folder           = "${path.module}/${var.prefix}-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
@@ -267,35 +269,36 @@ resource "null_resource" "build_function_scale_down" {
 data "ibm_code_engine_function" "scale_down_function" {
   depends_on = [null_resource.build_function_scale_down]
   name       = "${var.prefix}-down-fn"
-  project_id = ibm_code_engine_project.code_engine_project_instance.id
+  project_id = ibm_code_engine_project.code_engine_project_instance.project_id
 }
 
 resource "null_resource" "build_function_scale_up" {
   depends_on = [null_resource.build_function_scale_down, ibm_iam_service_api_key.key]
   provisioner "local-exec" {
     command = <<COMMAND
-       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-       ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
-       ibmcloud code-engine fn create \
-          -n "${self.triggers.function_name}" \
-          -v project --quiet \
-          --runtime python-3.13 \
-          --cpu 0.25 \
-          --memory 1G \
-          --env-from-configmap "${self.triggers.fn_config_map}" \
-          --env-from-configmap "${self.triggers.pvs_config_map}" \
-          --env-from-secret="${self.triggers.fn_secret}" \
-          --code-bundle "${self.triggers.private_image}" \
-          --code-bundle-secret "${self.triggers.cr_secret}" \
-          --output json > "${path.module}/${self.triggers.function_name}.json"
-     COMMAND
+      ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
+      ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
+      OUTPUT=$(ibmcloud code-engine fn create \
+        -n "${self.triggers.function_name}" \
+        -v project --quiet \
+        --runtime python-3.13 \
+        --cpu 0.25 \
+        --memory 1G \
+        --env-from-configmap "${self.triggers.fn_config_map}" \
+        --env-from-configmap "${self.triggers.pvs_config_map}" \
+        --env-from-secret="${self.triggers.fn_secret}" \
+        --code-bundle "${self.triggers.private_image}" \
+        --code-bundle-secret "${self.triggers.cr_secret}" \
+        --output json) || exit 1
+      echo "$OUTPUT" > "${path.module}/${self.triggers.function_name}.json"
+    COMMAND
   }
 
   triggers = {
     ibmcloud_api_key = ibm_iam_service_api_key.key.apikey
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
-    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.id
+    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
     function_name    = "${var.prefix}-up-fn"
     folder           = "${path.module}/${var.prefix}-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
@@ -347,13 +350,13 @@ resource "null_resource" "post_configuration" {
         --destination-type function \
         --destination "${self.triggers.scale_down_fn}" \
         --schedule "${self.triggers.cron_down}" \
-        --wait --wait-timeout 300 --quiet
+        --wait --wait-timeout 300 --quiet && \
        ibmcloud code-engine subscription cron create \
         --name "scale-up-cron-job" \
         --destination-type function \
         --destination "${self.triggers.scale_up_fn}" \
         --schedule "${self.triggers.cron_up}" \
-        --wait --wait-timeout 300 --quiet
+        --wait --wait-timeout 300 --quiet || exit 1
     COMMAND
   }
 
@@ -361,7 +364,7 @@ resource "null_resource" "post_configuration" {
     ibmcloud_api_key = ibm_iam_service_api_key.key.apikey
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
-    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.id
+    ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
     scale_down_fn    = "${var.prefix}-down-fn"
     scale_up_fn      = "${var.prefix}-up-fn"
     cron_down        = var.cron_expression_scale_down
