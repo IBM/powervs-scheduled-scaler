@@ -201,6 +201,7 @@ def main(params) -> dict[str, Any]:
                     pvm_instance_id: {"message": str(e), "code": 500}
                 })
 
+        logger.info(f"Scaling completed: {output}")
         return return_json_body(output, 200)
 
     except Exception as e:
