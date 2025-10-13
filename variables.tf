@@ -53,20 +53,14 @@ variable "registry_domain_name" {
   }
 }
 
-variable "image_tag" {
-  description = "Tag of the image in container registry"
-  type = string
-  default = "latest"
-}
-
 variable "cron_expression_scale_down" {
   description = "Define the recurring timing of the events generated for scale down subscription in UTC."
   type = string
-  default = "0 15 * * 1-5"
+  default = "0 20 * * *"
 }
 
 variable "cron_expression_scale_up" {
   description = "Define the recurring timing of the events generated for scale up subscription in UTC."
   type = string
-  default = "0 6 * * 1-5"
+  default = "0 6 * * *"
 }
