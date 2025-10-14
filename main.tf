@@ -131,9 +131,32 @@ resource "ibm_iam_service_api_key" "key" {
 # # Code Engine
 # ##############################################################################
 
+resource "null_resource" "project_replace" {
+  count = var.enable_project_replace ? 1 : 0
+
+  triggers = {
+    ibmcloud_api_key = var.ibmcloud_api_key
+    region           = var.ibmcloud_region
+    resource_group   = module.resource_group.resource_group_id
+    project_name     = local.project_name
+  }
+
+  provisioner "local-exec" {
+    command = "${path.module}/scripts/replace_project.sh"
+    environment = {
+      IBM_CLOUD_API_KEY = self.triggers.ibmcloud_api_key
+      REGION            = self.triggers.region
+      RESOURCE_GROUP    = self.triggers.resource_group
+      PROJECT           = self.triggers.project_name
+    }
+  }
+}
+
 resource "ibm_code_engine_project" "code_engine_project_instance" {
   name              = local.project_name
   resource_group_id = module.resource_group.resource_group_id
+
+  depends_on = [null_resource.project_replace]
 }
 
 resource "ibm_code_engine_secret" "cr_secret" {
@@ -168,22 +191,20 @@ resource "ibm_code_engine_config_map" "app_config_map" {
 
 resource "null_resource" "build_function_current_state" {
   provisioner "local-exec" {
-    command = <<COMMAND
-      ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-      ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
-      OUTPUT=$(ibmcloud code-engine fn create \
-        --name "${self.triggers.function_name}" \
-        -v public --wait --wait-timeout 300 --quiet \
-        --runtime python-3.13 \
-        --build-source "${self.triggers.folder}" \
-        --cpu 0.25 \
-        --memory 1G \
-        --env-from-configmap="${self.triggers.fn_config_map}" \
-        --env-from-secret="${self.triggers.fn_secret}" \
-        --code-bundle-secret "${self.triggers.cr_secret}" \
-        --output json) || exit 1
-      echo "$OUTPUT" > "${path.module}/${self.triggers.function_name}.json"
-     COMMAND
+    command = "${path.module}/scripts/create_function.sh"
+    environment = {
+      IBM_CLOUD_API_KEY = self.triggers.ibmcloud_api_key
+      REGION            = self.triggers.region
+      RESOURCE_GROUP    = self.triggers.resource_group
+      PROJECT_ID        = self.triggers.ce_project_id
+      FUNCTION_NAME     = self.triggers.function_name
+      VISIBILITY        = "public"
+      SOURCE_FOLDER     = self.triggers.source_folder
+      CONFIG_MAPS       = "${self.triggers.fn_config_map}"
+      SECRETS           = self.triggers.fn_secret
+      CR_SECRET         = self.triggers.cr_secret
+      OUTPUT_FILE       = "${path.module}/${self.triggers.function_name}.json"
+    }
   }
 
   triggers = {
@@ -192,7 +213,7 @@ resource "null_resource" "build_function_current_state" {
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
     function_name    = "${var.prefix}-current-state-fn"
-    folder           = "${path.module}/${var.prefix}-current-state-fn"
+    source_folder    = "${path.module}/${var.prefix}-current-state-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
     fn_secret        = ibm_code_engine_secret.app_secret.name
     cr_secret        = ibm_code_engine_secret.cr_secret.name
@@ -202,39 +223,33 @@ resource "null_resource" "build_function_current_state" {
 
   provisioner "local-exec" {
     when    = destroy
-    command = <<COMMAND
-       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-       ibmcloud ce fn delete --name ${self.triggers.function_name} --quiet --force
-       json_file="${path.module}/${self.triggers.function_name}.json"
-       if [ ! -f "$json_file" ]; then
-        echo "File $json_file not found"
-        exit 0
-       fi
-       namespace=$(jq -r '.code_reference | capture("cr://[^/]+/(?<namespace>[^/]+)/.*") | .namespace' "$json_file")
-       ibmcloud cr region-set "${self.triggers.region}"
-       ibmcloud cr namespace-rm "$namespace" --force
-       rm -f "${path.module}/${self.triggers.function_name}.json"
-     COMMAND
+    command = "${path.module}/scripts/cleanup.sh"
+    environment = {
+      IBM_CLOUD_API_KEY = self.triggers.ibmcloud_api_key
+      REGION            = self.triggers.region
+      RESOURCE_GROUP    = self.triggers.resource_group
+      FUNCTION_NAME     = self.triggers.function_name
+      JSON_FILE         = "${path.module}/${self.triggers.function_name}.json"
+    }
   }
 }
 
 resource "null_resource" "build_function_scale_down" {
   provisioner "local-exec" {
-    command = <<COMMAND
-      ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-      ibmcloud code-engine project select --id "${self.triggers.ce_project_id}" --quiet
-      ibmcloud code-engine fn create \
-        -n "${self.triggers.function_name}" \
-        -v project --wait --wait-timeout 300 --quiet \
-        --runtime python-3.13 \
-        --build-source "${self.triggers.folder}" \
-        --cpu 0.25 \
-        --memory 1G \
-        --env-from-configmap "${self.triggers.fn_config_map}" \
-        --env-from-configmap "${self.triggers.pvs_config_map}" \
-        --env-from-secret "${self.triggers.fn_secret}" \
-        --code-bundle-secret "${self.triggers.cr_secret}" || exit 1
-     COMMAND
+    command = "${path.module}/scripts/create_function.sh"
+    environment = {
+      IBM_CLOUD_API_KEY = self.triggers.ibmcloud_api_key
+      REGION            = self.triggers.region
+      RESOURCE_GROUP    = self.triggers.resource_group
+      PROJECT_ID        = self.triggers.ce_project_id
+      FUNCTION_NAME     = self.triggers.function_name
+      VISIBILITY        = "project"
+      SOURCE_FOLDER     = self.triggers.source_folder
+      CONFIG_MAPS       = "${self.triggers.fn_config_map},${self.triggers.pvs_config_map}"
+      SECRETS           = self.triggers.fn_secret
+      CR_SECRET         = self.triggers.cr_secret
+      OUTPUT_FILE       = "${path.module}/${self.triggers.function_name}.json"
+    }
   }
 
   triggers = {
@@ -243,7 +258,7 @@ resource "null_resource" "build_function_scale_down" {
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
     function_name    = "${var.prefix}-down-fn"
-    folder           = "${path.module}/${var.prefix}-fn"
+    source_folder    = "${path.module}/${var.prefix}-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
     pvs_config_map   = ibm_code_engine_config_map.ce_scale_down_config_map.name
     fn_secret        = ibm_code_engine_secret.app_secret.name
@@ -254,10 +269,14 @@ resource "null_resource" "build_function_scale_down" {
 
   provisioner "local-exec" {
     when    = destroy
-    command = <<COMMAND
-       ibmcloud login --apikey "${self.triggers.ibmcloud_api_key}" -r "${self.triggers.region}" -g "${self.triggers.resource_group}" --quiet
-       ibmcloud ce fn delete --name ${self.triggers.function_name} --quiet --force --inf
-     COMMAND
+    command = "${path.module}/scripts/cleanup.sh"
+    environment = {
+      IBM_CLOUD_API_KEY = self.triggers.ibmcloud_api_key
+      REGION            = self.triggers.region
+      RESOURCE_GROUP    = self.triggers.resource_group
+      FUNCTION_NAME     = self.triggers.function_name
+      JSON_FILE         = "${path.module}/${self.triggers.function_name}.json"
+    }
   }
 }
 
@@ -281,15 +300,15 @@ resource "ibm_code_engine_function" "scale_up_function" {
 
   run_env_variables {
     reference = ibm_code_engine_config_map.app_config_map.name
-    type = "config_map_full_reference"
+    type      = "config_map_full_reference"
   }
   run_env_variables {
     reference = ibm_code_engine_config_map.ce_scale_up_config_map.name
-    type = "config_map_full_reference"
+    type      = "config_map_full_reference"
   }
   run_env_variables {
     reference = ibm_code_engine_secret.app_secret.name
-    type = "secret_full_reference"
+    type      = "secret_full_reference"
   }
 }
 

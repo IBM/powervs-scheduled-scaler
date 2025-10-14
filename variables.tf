@@ -64,3 +64,9 @@ variable "cron_expression_scale_up" {
   type = string
   default = "0 6 * * *"
 }
+
+variable "enable_project_replace" {
+  description = "Enable or disable project replacement"
+  type        = bool
+  default     = true
+}
