@@ -8,7 +8,11 @@ import requests
 from ibm_cloud_sdk_core import ApiException, BaseService, DetailedResponse
 from ibm_cloud_sdk_core.authenticators import IAMAuthenticator
 from ibm_cloud_sdk_core.utils import strip_extra_slashes
-from ibm_code_engine_sdk.code_engine_v2 import CodeEngineV2, ProjectsPager, ConfigMapsPager
+from ibm_code_engine_sdk.code_engine_v2 import (
+    CodeEngineV2,
+    ProjectsPager,
+    ConfigMapsPager,
+)
 from requests import JSONDecodeError
 
 # -------------------------------------------
@@ -24,6 +28,7 @@ logger = logging.getLogger(__name__)
 # Utility functions
 # -------------------------------------------
 
+
 def get_service_url_for_region(region: str, service: str) -> Optional[str]:
     """
     Returns the service URL associated with the specified region.
@@ -38,31 +43,31 @@ def get_service_url_for_region(region: str, service: str) -> Optional[str]:
         return None
 
     POWER_CLOUD_REGIONAL_ENDPOINTS = {
-        'au-syd': 'https://syd.power-iaas.cloud.ibm.com/pcloud/v1',  # Australia (Sydney)
-        'br-sao': 'https://sao.power-iaas.cloud.ibm.com/pcloud/v1',  # Brazil (Sao Paulo)
-        'ca-mon': 'https://mon.power-iaas.cloud.ibm.com/pcloud/v1',  # Canada (Montreal)
-        'ca-tor': 'https://tor.power-iaas.cloud.ibm.com/pcloud/v1',  # Canada (Toronto)
-        'eu-de': 'https://eu-de.power-iaas.cloud.ibm.com/pcloud/v1',  # Germany (Frankfurt)
-        'eu-es': 'https://mad.power-iaas.cloud.ibm.com/pcloud/v1',  # Spain (Madrid)
-        'eu-gb': 'https://lon.power-iaas.cloud.ibm.com/pcloud/v1',  # United Kingdom (London)
-        'jp-osa': 'https://osa.power-iaas.cloud.ibm.com/pcloud/v1',  # Japan (Osaka)
-        'jp-tok': 'https://tok.power-iaas.cloud.ibm.com/pcloud/v1',  # Japan (Tokyo)
-        'us-east': 'https://us-east.power-iaas.cloud.ibm.com/pcloud/v1',  # US East (Washington DC)ß
-        'us-south': 'https://us-south.power-iaas.cloud.ibm.com/pcloud/v1',  # US South (Dallas)
-        'in-che': 'https://che.power-iaas.cloud.ibm.com/pcloud/v1',  # India (Chennai)
+        "au-syd": "https://syd.power-iaas.cloud.ibm.com/pcloud/v1",  # Australia (Sydney)
+        "br-sao": "https://sao.power-iaas.cloud.ibm.com/pcloud/v1",  # Brazil (Sao Paulo)
+        "ca-mon": "https://mon.power-iaas.cloud.ibm.com/pcloud/v1",  # Canada (Montreal)
+        "ca-tor": "https://tor.power-iaas.cloud.ibm.com/pcloud/v1",  # Canada (Toronto)
+        "eu-de": "https://eu-de.power-iaas.cloud.ibm.com/pcloud/v1",  # Germany (Frankfurt)
+        "eu-es": "https://mad.power-iaas.cloud.ibm.com/pcloud/v1",  # Spain (Madrid)
+        "eu-gb": "https://lon.power-iaas.cloud.ibm.com/pcloud/v1",  # United Kingdom (London)
+        "jp-osa": "https://osa.power-iaas.cloud.ibm.com/pcloud/v1",  # Japan (Osaka)
+        "jp-tok": "https://tok.power-iaas.cloud.ibm.com/pcloud/v1",  # Japan (Tokyo)
+        "us-east": "https://us-east.power-iaas.cloud.ibm.com/pcloud/v1",  # US East (Washington DC)ß
+        "us-south": "https://us-south.power-iaas.cloud.ibm.com/pcloud/v1",  # US South (Dallas)
+        "in-che": "https://che.power-iaas.cloud.ibm.com/pcloud/v1",  # India (Chennai)
     }
 
     CODE_ENGINE_REGIONAL_ENDPOINTS = {
-        'au-syd': 'https://api.us-south.codeengine.cloud.ibm.com/v2',  # Australia (Sydney)
-        'br-sao': 'https://api.br-sao.codeengine.cloud.ibm.com/v2',  # Brazil (Sao Paulo)
-        'ca-tor': 'https://api.ca-tor.codeengine.cloud.ibm.com/v2',  # Canada (Toronto)
-        'eu-de': 'https://api.eu-de.codeengine.cloud.ibm.com/v2',  # Germany (Frankfurt)
-        'eu-es': 'https://api.eu-es.codeengine.cloud.ibm.com/v2',  # Spain (Madrid)
-        'eu-gb': 'https://api.eu-gb.codeengine.cloud.ibm.com/v2',  # United Kingdom (London)
-        'jp-osa': 'https://api.jp-osa.codeengine.cloud.ibm.com/v2',  # Japan (Osaka)
-        'jp-tok': 'https://api.jp-tok.codeengine.cloud.ibm.com/v2',  # Japan (Tokyo)
-        'us-east': 'https://api.us-east.codeengine.cloud.ibm.com/v2',  # US East (Washington DC)
-        'us-south': 'https://api.us-south.codeengine.cloud.ibm.com/v2',  # US South (Dallas)
+        "au-syd": "https://api.us-south.codeengine.cloud.ibm.com/v2",  # Australia (Sydney)
+        "br-sao": "https://api.br-sao.codeengine.cloud.ibm.com/v2",  # Brazil (Sao Paulo)
+        "ca-tor": "https://api.ca-tor.codeengine.cloud.ibm.com/v2",  # Canada (Toronto)
+        "eu-de": "https://api.eu-de.codeengine.cloud.ibm.com/v2",  # Germany (Frankfurt)
+        "eu-es": "https://api.eu-es.codeengine.cloud.ibm.com/v2",  # Spain (Madrid)
+        "eu-gb": "https://api.eu-gb.codeengine.cloud.ibm.com/v2",  # United Kingdom (London)
+        "jp-osa": "https://api.jp-osa.codeengine.cloud.ibm.com/v2",  # Japan (Osaka)
+        "jp-tok": "https://api.jp-tok.codeengine.cloud.ibm.com/v2",  # Japan (Tokyo)
+        "us-east": "https://api.us-east.codeengine.cloud.ibm.com/v2",  # US East (Washington DC)
+        "us-south": "https://api.us-south.codeengine.cloud.ibm.com/v2",  # US South (Dallas)
     }
     if service == "code_engine":
         return CODE_ENGINE_REGIONAL_ENDPOINTS.get(region, None)
@@ -87,14 +92,14 @@ def get_service_instance_from_crn(crn: str) -> Optional[str]:
         str: The extracted UUID if found, otherwise None.
     """
     if not crn:
-        raise ValueError('CRN is required')
+        raise ValueError("CRN is required")
 
     pattern = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     match = re.search(pattern, crn, re.IGNORECASE)
     return match.group(0) if match else None
 
 
-def get_json_error(status: int, title: str, message: str)-> Dict[str, Any]:
+def get_json_error(status: int, title: str, message: str) -> Dict[str, Any]:
     """
     Create a JSON error response.
 
@@ -111,9 +116,9 @@ def get_json_error(status: int, title: str, message: str)-> Dict[str, Any]:
     """
     logger.error(f"[{status}] {title}: {message}")
     return {
-        "headers": { "Content-Type": "application/json"},
+        "headers": {"Content-Type": "application/json"},
         "statusCode": status,
-        "body": { "error": title, "message": message}
+        "body": {"error": title, "message": message},
     }
 
 
@@ -131,9 +136,9 @@ def return_json_body(body: str) -> Dict[str, Any]:
         dict: A dictionary representing the JSON response.
     """
     return {
-        "headers": { "Content-Type": "application/json"},
+        "headers": {"Content-Type": "application/json"},
         "statusCode": 200,
-        "body": {"return": body}
+        "body": {"return": body},
     }
 
 
@@ -170,8 +175,9 @@ def get_paged_results(pager) -> List[Any]:
     return results
 
 
-
-def get_instances_details(crn: str = None, authenticator: IAMAuthenticator = None) -> DetailedResponse:
+def get_instances_details(
+    crn: str = None, authenticator: IAMAuthenticator = None
+) -> DetailedResponse:
     """
     Fetches details of PVM instances for a given cloud instance identified by CRN.
 
@@ -194,7 +200,6 @@ def get_instances_details(crn: str = None, authenticator: IAMAuthenticator = Non
     if not region:
         raise EnvironmentError("Missing environment variable CODE_ENGINE_REGION")
 
-
     base_url = get_service_url_for_region(region, "power_iaas")
     if not base_url:
         raise ValueError(f"No Power IaaS endpoint found for region '{region}'")
@@ -208,12 +213,12 @@ def get_instances_details(crn: str = None, authenticator: IAMAuthenticator = Non
         "Authorization": f"Bearer {authenticator.token_manager.get_token()}",
         "CRN": crn,
     }
-    path_param_keys = ['cloud_instance_id']
+    path_param_keys = ["cloud_instance_id"]
     cloud_instance_id = get_service_instance_from_crn(crn)
     path_param_values = BaseService.encode_path_vars(cloud_instance_id)
     path_param_dict = dict(zip(path_param_keys, path_param_values))
 
-    url = '/cloud-instances/{cloud_instance_id}/pvm-instances'.format(**path_param_dict)
+    url = "/cloud-instances/{cloud_instance_id}/pvm-instances".format(**path_param_dict)
     url = strip_extra_slashes(base_url + url)
     logger.debug(f"Requesting instances from URL: {url}")
 
@@ -225,15 +230,17 @@ def get_instances_details(crn: str = None, authenticator: IAMAuthenticator = Non
         raise ApiException(
             code=response.status_code,
             http_response=response,
-            message=f"Invalid JSON in response: {e}"
+            message=f"Invalid JSON in response: {e}",
         ) from e
     except requests.RequestException as e:
         raise ApiException(
-            code=getattr(e.response, "status_code", 500),
-            message=f"HTTP error: {e}"
+            code=getattr(e.response, "status_code", 500), message=f"HTTP error: {e}"
         ) from e
 
-    return DetailedResponse(response=result, headers=response.headers, status_code=response.status_code)
+    return DetailedResponse(
+        response=result, headers=response.headers, status_code=response.status_code
+    )
+
 
 def get_current_status(authenticator: IAMAuthenticator) -> list[dict]:
     """
@@ -251,12 +258,18 @@ def get_current_status(authenticator: IAMAuthenticator) -> list[dict]:
     project_name = os.getenv("CODE_ENGINE_PROJECT_NAME")
     crn = os.getenv("CRN")
     if not project_name or not crn:
-        raise EnvironmentError("Environment variables CODE_ENGINE_PROJECT_NAME and CRN must be set")
+        raise EnvironmentError(
+            "Environment variables CODE_ENGINE_PROJECT_NAME and CRN must be set"
+        )
 
     code_engine_service = CodeEngineV2.new_instance()
-    all_projects = get_paged_results(ProjectsPager(client=code_engine_service, limit=100))
+    all_projects = get_paged_results(
+        ProjectsPager(client=code_engine_service, limit=100)
+    )
 
-    project_id = next((p["id"] for p in all_projects if p.get("name") == project_name), None)
+    project_id = next(
+        (p["id"] for p in all_projects if p.get("name") == project_name), None
+    )
     if not project_id:
         raise ValueError(f"Project '{project_name}' not found in Code Engine")
 
@@ -278,31 +291,38 @@ def get_current_status(authenticator: IAMAuthenticator) -> list[dict]:
     ]
 
     pvs_scale_up_config_str = json.dumps(data, ensure_ascii=False)
-    all_config_maps = get_paged_results(ConfigMapsPager(client=code_engine_service, project_id=project_id, limit=100))
-    existing = next((m for m in all_config_maps if m.get("name") == "pvs-scale-up-config"), None)
+    all_config_maps = get_paged_results(
+        ConfigMapsPager(client=code_engine_service, project_id=project_id, limit=100)
+    )
+    existing = next(
+        (m for m in all_config_maps if m.get("name") == "pvs-scale-up-config"), None
+    )
     if existing:
         logger.info("Updating existing ConfigMap 'pvs-scale-up-config'")
-        config_map = code_engine_service.get_config_map(project_id=project_id, name="pvs-scale-up-config")
+        config_map = code_engine_service.get_config_map(
+            project_id=project_id, name="pvs-scale-up-config"
+        )
         etag = config_map.get_result().get("entity_tag")
         code_engine_service.replace_config_map(
             project_id=project_id,
             name="pvs-scale-up-config",
             if_match=etag,
-            data={"pvs_scale_config" : pvs_scale_up_config_str}
+            data={"pvs_scale_config": pvs_scale_up_config_str},
         )
     else:
         logger.info("Creating new ConfigMap 'pvs-scale-up-config'")
         resp = code_engine_service.create_config_map(
             project_id=project_id,
             name="pvs-scale-up-config",
-            data={"pvs_scale_config": pvs_scale_up_config_str}
+            data={"pvs_scale_config": pvs_scale_up_config_str},
         )
-
     return data
+
 
 # -------------------------------------------
 # Main entry point
 # -------------------------------------------
+
 
 def main(params):
     """Entrypoint for IBM Cloud Function or local execution."""
@@ -317,10 +337,13 @@ def main(params):
 
         os.environ["CODE_ENGINE_APIKEY"] = os.getenv("IBM_CLOUD_API_KEY")
         os.environ["CODE_ENGINE_AUTH_TYPE"] = "iam"
-        os.environ["CODE_ENGINE_URL"] = get_service_url_for_region(os.getenv("CODE_ENGINE_REGION"), "code_engine")
+        os.environ["CODE_ENGINE_URL"] = get_service_url_for_region(
+            os.getenv("CODE_ENGINE_REGION"), "code_engine"
+        )
 
         authenticator = IAMAuthenticator(api_key)
         current_status = get_current_status(authenticator)
+        logger.info(json.dumps(current_status))
         return return_json_body(current_status)
 
     except ApiException as e:
@@ -329,4 +352,3 @@ def main(params):
     except Exception as e:
         logger.exception("Unhandled exception")
         return get_json_error(500, "InternalError", str(e))
-
