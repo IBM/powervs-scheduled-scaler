@@ -57,7 +57,7 @@ Before using the project, ensure you have:
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com:IBM/powervs-scheduled-scaler.git
+   git clone https://github.com/IBM/powervs-scheduled-scaler.git
    cd powervs-scheduled-scaler
    ```
 
