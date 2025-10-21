@@ -65,7 +65,7 @@ You must be assigned one or more IAM access roles that include the following act
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Resource Manager**      | - resource-controller.group.retrieve                                                                                                                          |
 | **Resource Controller**   | - resource-controller.instance.retrieve<br>- resource-controller.instance.create                                                                              |
-| **Code Engine**           | - codeengine.tenant.entities.read<br>- codeengine.tenant.entities.create                                                                                      |
+| **Code Engine**           | - codeengine.tenant.entities.read<br>- codeengine.tenant.entities.create<br>- codeengine.tenant.entities.delete                                               |
 | **IAM Identiy Services**  | - iam-identity.serviceid.get<br>- iam-identity.serviceid.create<br>- iam-identity.apikey.list<br>- iam-identity.apikey.create<br>- iam-identity.apikey.delete |
 | **IAM Policy Management** | - iam.policy.read<br>- iam.policy.create<br>- iam.policy.delete                                                                                               |
 | **Power Cloud**           | - power-iaas.cloud-instance.modify<br>- power-iaas.cloud-instance.read<br>- power-iaas.workspace.read<br>                                                     |
@@ -158,13 +158,7 @@ If you no longer need the resources deployed by this project, you can destroy th
 2. **Run terraform destroy**
 
    ```bash
-   terraform destroy --auto-approve
-   ```
-
-3. **Remember to hard delete Code Engine Project**
-
-   ```bash
-   ibmcloud ce proj delete --name pvs-scale --hard
+   terraform apply -destroy --auto-approve
    ```
 
 ---
