@@ -11,7 +11,7 @@ variable "ibmcloud_region" {
 }
 
 variable "ibmcloud_pvs_datacenter" {
-  description = "IBM Cloud Zone for PowerVS workspace"
+  description = "IBM Cloud datacenter for IBM PowerVS workspace"
   type        = string
   default     = "eu-de-1"
 }
@@ -39,19 +39,19 @@ variable "code_engine_project_name" {
 }
 
 variable "workspace_name" {
-  description = "Workspace Name"
+  description = "IBM PowerVS workspace name"
   type        = string
 }
 
-variable "registry_domain_name" {
-  description = "Container registry domain name"
-  type = string
-  default = "de.icr.io"
-  validation {
-    condition     = can(regex("^(icr.io|de.icr.io|us.icr.io|es.icr.io|uk.icr.io|jp.icr.io|jp2.icr.io|br.icr.io|au.icr.io|ca.icr.io)$", var.registry_domain_name))
-    error_message = "Value must be one of: icr.io, de.icr.io, us.icr.io, es.icr.io, uk.icr.io, jp.icr.io, jp2.icr.io, br.icr.io, au.icr.io, ca.icr.io"
-  }
-}
+# variable "registry_domain_name" {
+#   description = "Container registry domain name"
+#   type = string
+#   default = "de.icr.io"
+#   validation {
+#     condition     = can(regex("^(icr.io|de.icr.io|us.icr.io|es.icr.io|uk.icr.io|jp.icr.io|jp2.icr.io|br.icr.io|au.icr.io|ca.icr.io)$", var.registry_domain_name))
+#     error_message = "Value must be one of: icr.io, de.icr.io, us.icr.io, es.icr.io, uk.icr.io, jp.icr.io, jp2.icr.io, br.icr.io, au.icr.io, ca.icr.io"
+#   }
+# }
 
 variable "cron_expression_scale_down" {
   description = "Define the recurring timing of the events generated for scale down subscription in UTC."
@@ -66,7 +66,7 @@ variable "cron_expression_scale_up" {
 }
 
 variable "enable_project_replace" {
-  description = "Enable or disable project replacement"
+  description = "Enable or disable Code Engine project replacement"
   type        = bool
   default     = true
 }

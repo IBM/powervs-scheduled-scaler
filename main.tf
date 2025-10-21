@@ -39,6 +39,20 @@ locals {
     }
   ])
   project_name = var.code_engine_project_name == null ? var.prefix : var.code_engine_project_name
+
+  registry_domains = {
+    "eu-de"    = "de.icr.io"
+    "us-south" = "us.icr.io"
+    "uk-south" = "uk.icr.io"
+    "jp-tok"   = "jp.icr.io"
+    "au-syd"   = "au.icr.io"
+    "ca-tor"   = "ca.icr.io"
+    "br-sao"   = "br.icr.io"
+    "es-mad"   = "es.icr.io"
+  }
+
+  registry_domain_name = lookup(local.registry_domains, var.ibmcloud_region, "icr.io")
+
 }
 
 ##############################################################################
@@ -57,14 +71,12 @@ resource "ibm_iam_service_policy" "power_iaas_policy" {
   resources {
     service              = "power-iaas"
     resource_instance_id = data.ibm_pi_workspace.pvs_workspace.id
+    resource_group_id    = module.resource_group.resource_group_id
   }
 
   transaction_id = "terraformServicePolicy"
 }
 
-##############################################################################
-# Configure registry access for Region
-##############################################################################
 resource "ibm_iam_service_policy" "container_registry_policy" {
   iam_id      = ibm_iam_service_id.sid.iam_id
   roles       = ["Manager"]
@@ -107,7 +119,8 @@ resource "ibm_iam_service_policy" "code_engine_policy" {
   roles       = ["Writer", "Compute Environment Administrator", "Service Configuration Reader", "Administrator"]
   description = "IAM Service Policy for Code Engine"
   resources {
-    service = "codeengine"
+    service           = "codeengine"
+    resource_group_id = module.resource_group.resource_group_id
   }
 
   transaction_id = "terraformServicePolicy"
@@ -165,7 +178,7 @@ resource "ibm_code_engine_secret" "cr_secret" {
   format     = "registry"
   data = {
     password = ibm_iam_service_api_key.key.apikey
-    server   = "private.${var.registry_domain_name}"
+    server   = "private.${local.registry_domain_name}"
     username = "iamapikey"
   }
 }
