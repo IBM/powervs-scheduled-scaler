@@ -41,14 +41,16 @@ locals {
   project_name = var.code_engine_project_name == null ? var.prefix : var.code_engine_project_name
 
   registry_domains = {
-    "eu-de"    = "de.icr.io"
-    "us-south" = "us.icr.io"
-    "uk-south" = "uk.icr.io"
-    "jp-tok"   = "jp.icr.io"
     "au-syd"   = "au.icr.io"
-    "ca-tor"   = "ca.icr.io"
     "br-sao"   = "br.icr.io"
-    "es-mad"   = "es.icr.io"
+    "ca-mon"   = "ca2.icr.io"
+    "ca-tor"   = "ca.icr.io"
+    "eu-de"    = "de.icr.io"
+    "eu-es"    = "es.icr.io"
+    "eu-gb"    = "uk.icr.io"
+    "jp-osa"   = "jp2.icr.io"
+    "jp-tok"   = "jp.icr.io"
+    "us-south" = "us.icr.io"
   }
 
   registry_domain_name = lookup(local.registry_domains, var.ibmcloud_region, "icr.io")
@@ -247,6 +249,13 @@ resource "null_resource" "build_function_current_state" {
   }
 }
 
+data "ibm_code_engine_function" "current_state_function" {
+  depends_on = [null_resource.build_function_current_state]
+
+  project_id = ibm_code_engine_project.code_engine_project_instance.project_id
+  name       = "${var.prefix}-current-state-fn"
+}
+
 resource "null_resource" "build_function_scale_down" {
   provisioner "local-exec" {
     command = "${path.module}/scripts/create_function.sh"
@@ -295,6 +304,7 @@ resource "null_resource" "build_function_scale_down" {
 
 data "ibm_code_engine_function" "scale_down_function" {
   depends_on = [null_resource.build_function_scale_down]
+
   name       = "${var.prefix}-down-fn"
   project_id = ibm_code_engine_project.code_engine_project_instance.project_id
 }
@@ -302,14 +312,15 @@ data "ibm_code_engine_function" "scale_down_function" {
 resource "ibm_code_engine_function" "scale_up_function" {
   depends_on = [null_resource.build_function_scale_down]
 
-  project_id         = ibm_code_engine_project.code_engine_project_instance.project_id
-  name               = "${var.prefix}-up-fn"
-  runtime            = "python-3.13"
-  code_reference     = replace(data.ibm_code_engine_function.scale_down_function.code_reference, "cr://", "")
-  code_binary        = true
-  code_secret        = data.ibm_code_engine_function.scale_down_function.code_secret
-  scale_cpu_limit    = "0.25"
-  scale_memory_limit = "1G"
+  project_id              = ibm_code_engine_project.code_engine_project_instance.project_id
+  name                    = "${var.prefix}-up-fn"
+  runtime                 = "python-3.13"
+  managed_domain_mappings = "local"
+  code_reference          = replace(data.ibm_code_engine_function.scale_down_function.code_reference, "cr://", "")
+  code_binary             = true
+  code_secret             = data.ibm_code_engine_function.scale_down_function.code_secret
+  scale_cpu_limit         = "0.25"
+  scale_memory_limit      = "1G"
 
   run_env_variables {
     reference = ibm_code_engine_config_map.app_config_map.name

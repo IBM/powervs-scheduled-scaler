@@ -78,14 +78,24 @@ You must be assigned one or more IAM access roles that include the following act
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------- | -------------- | :------: |
 | `ibmcloud_api_key`           | IBM Cloud API key                                                                                                | `string` | n/a            |    ✅    |
 | `ibmcloud_region`            | IBM Cloud Region                                                                                                 | `string` | `"eu-de"`      |    ❌    |
-| `ibmcloud_pvs_datacenter`    | IBM Cloud datacenter for IBM PowerVS workspace                                                                             | `string` | `"eu-de-1"`    |    ❌    |
+| `ibmcloud_pvs_datacenter`    | IBM Cloud datacenter for IBM PowerVS workspace                                                                   | `string` | `"eu-de-1"`    |    ❌    |
 | `prefix`                     | A unique identifier for resources. Must begin with a lowercase letter and end with a lowercase letter or number. | `string` | `"pvs-scale"`  |    ❌    |
 | `resource_group`             | Resource group where resources will be created                                                                   | `string` | n/a            |    ✅    |
 | `code_engine_project_name`   | The name of the Code Engine project                                                                              | `string` | `null`         |    ❌    |
-| `workspace_name`             | IBM PowerVS workspace name                                                                                                   | `string` | n/a            |    ✅    |
-`cron_expression_scale_down` | Cron expression for scale down events (UTC)                                                                      | `string` | `"0 20 * * *"` |    ❌    |
+| `workspace_name`             | IBM PowerVS workspace name                                                                                       | `string` | n/a            |    ✅    |
+| `cron_expression_scale_down` | Cron expression for scale down events (UTC)                                                                      | `string` | `"0 20 * * *"` |    ❌    |
 | `cron_expression_scale_up`   | Cron expression for scale up events (UTC)                                                                        | `string` | `"0 6 * * *"`  |    ❌    |
-| `enable_project_replace`     | Enable or disable Code Engine project replacement                                                                            | `bool`   | `true`         |    ❌    |
+| `enable_project_replace`     | Enable or disable Code Engine project replacement                                                                | `bool`   | `true`         |    ❌    |
+
+---
+
+## 📤 Outputs
+
+| Name                       | Description                         | Sensitive |
+| -------------------------- | ----------------------------------- | :-------: |
+| `pvs_current_state_fn_url` | Endpoint for current state function |    ❌     |
+| `pvs_scale_down_fn_url`    | Endpoint for scale down function    |    ❌     |
+| `pvs_scale_up_fn_url`      | Endpoint for scale up function      |    ❌     |
 
 ---
 

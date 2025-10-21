@@ -49,7 +49,7 @@ variable "workspace_name" {
 #   default = "de.icr.io"
 #   validation {
 #     condition     = can(regex("^(icr.io|de.icr.io|us.icr.io|es.icr.io|uk.icr.io|jp.icr.io|jp2.icr.io|br.icr.io|au.icr.io|ca.icr.io)$", var.registry_domain_name))
-#     error_message = "Value must be one of: icr.io, de.icr.io, us.icr.io, es.icr.io, uk.icr.io, jp.icr.io, jp2.icr.io, br.icr.io, au.icr.io, ca.icr.io"
+#     error_message = "Value must be one of: icr.io, de.icr.io, us.icr.io, es.icr.io, uk.icr.io, jp.icr.io, jp2.icr.io, br.icr.io, au.icr.io, ca.icr.io, ca2.icr.io"
 #   }
 # }
 
