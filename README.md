@@ -31,12 +31,12 @@ B --> C[IBM PowerVS Service<br>- Virtual Server<br>-Resource updates]
 
 ## ⚙️ Components
 
-| Component | Description |
-|------------|-------------|
-| **Terraform** | Manages the infrastructure changes (scale up/down PowerVS VMs). |
-| **IBM Cloud Code Engine** | Runs scheduled function to trigger scaling actions. |
-| **IBM Cloud CLI & API** | Used to interact with PowerVS resources. |
-| **Bash / Shell Scripts** | Orchestrate Terraform execution and handle configuration. |
+| Component                 | Description                                                     |
+| ------------------------- | --------------------------------------------------------------- |
+| **Terraform**             | Manages the infrastructure changes (scale up/down PowerVS VMs). |
+| **IBM Cloud Code Engine** | Runs scheduled function to trigger scaling actions.             |
+| **IBM Cloud CLI & API**   | Used to interact with PowerVS resources.                        |
+| **Bash / Shell Scripts**  | Orchestrate Terraform execution and handle configuration.       |
 
 ---
 
@@ -44,11 +44,48 @@ B --> C[IBM PowerVS Service<br>- Virtual Server<br>-Resource updates]
 
 Before using the project, ensure you have:
 
-- An **IBM Cloud account** with access to PowerVS resources
-- **IBM Cloud CLI** installed and configured (`ibmcloud login`)
-- **Terraform** installed (≥ v1.5 recommended)
+- An **IBM Cloud account** with access to PowerVS resources. See [Required permissions](#-required-permissions)
+- **IBM Cloud CLI** installed
+  - Linux: `curl -fsSL https://clis.cloud.ibm.com/install/linux | sh`
+  - MacOS: `curl -fsSL https://clis.cloud.ibm.com/install/osx | sh`
+  - Windows™: `iex (New-Object Net.WebClient).DownloadString('https://clis.cloud.ibm.com/install/powershell')`
+  - WSL2 on Windows™: `curl -fsSL https://clis.cloud.ibm.com/install/linux | sh`
+- **IBM Cloud CLI Code Engine plugin** installed (`ibmcloud plugin install ce`)
+- **IBM Cloud CLI Container Registry plugin** installed (`ibmcloud plugin install cr`)
+- **Terraform** installed (≥ v1.6 recommended)
 - **jq**, **curl**, and **bash** available in your environment
-- Permissions to create and run **Code Engine jobs**
+
+---
+
+## 🚦 Required permissions
+
+You must be assigned one or more IAM access roles that include the following action. You can check your access by going to [Users](<[https://](https://cloud.ibm.com/iam/users)>) > User > Access.
+
+| Service                   | Permissions                                                                                                                                                   |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Resource Manager**      | - resource-controller.group.retrieve                                                                                                                          |
+| **Resource Controller**   | - resource-controller.instance.retrieve<br>- resource-controller.instance.create                                                                              |
+| **Code Engine**           | - codeengine.tenant.entities.read<br>- codeengine.tenant.entities.create                                                                                      |
+| **IAM Identiy Services**  | - iam-identity.serviceid.get<br>- iam-identity.serviceid.create<br>- iam-identity.apikey.list<br>- iam-identity.apikey.create<br>- iam-identity.apikey.delete |
+| **IAM Policy Management** | - iam.policy.read<br>- iam.policy.create<br>- iam.policy.delete                                                                                               |
+| **Power Cloud**           | - power-iaas.cloud-instance.modify<br>- power-iaas.cloud-instance.read<br>- power-iaas.workspace.read<br>                                                     |
+
+---
+
+## 📋 Inputs
+
+| Name                         | Description                                                                                                      | Type     | Default        | Required |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------- | -------------- | :------: |
+| `ibmcloud_api_key`           | IBM Cloud API key                                                                                                | `string` | n/a            |    ✅    |
+| `ibmcloud_region`            | IBM Cloud Region                                                                                                 | `string` | `"eu-de"`      |    ❌    |
+| `ibmcloud_pvs_datacenter`    | IBM Cloud datacenter for IBM PowerVS workspace                                                                             | `string` | `"eu-de-1"`    |    ❌    |
+| `prefix`                     | A unique identifier for resources. Must begin with a lowercase letter and end with a lowercase letter or number. | `string` | `"pvs-scale"`  |    ❌    |
+| `resource_group`             | Resource group where resources will be created                                                                   | `string` | n/a            |    ✅    |
+| `code_engine_project_name`   | The name of the Code Engine project                                                                              | `string` | `null`         |    ❌    |
+| `workspace_name`             | IBM PowerVS workspace name                                                                                                   | `string` | n/a            |    ✅    |
+`cron_expression_scale_down` | Cron expression for scale down events (UTC)                                                                      | `string` | `"0 20 * * *"` |    ❌    |
+| `cron_expression_scale_up`   | Cron expression for scale up events (UTC)                                                                        | `string` | `"0 6 * * *"`  |    ❌    |
+| `enable_project_replace`     | Enable or disable Code Engine project replacement                                                                            | `bool`   | `true`         |    ❌    |
 
 ---
 
@@ -86,6 +123,7 @@ Before using the project, ensure you have:
    ```
 
 5. Adjust Code Engine config-map `pvs-scale-down-config` and `pvs-scale-up-config` accordingly
+
 ```json
 [
    {
@@ -113,7 +151,7 @@ If you no longer need the resources deployed by this project, you can destroy th
    terraform destroy --auto-approve
    ```
 
-1. **Remember to hard delete Code Engine Project**
+3. **Remember to hard delete Code Engine Project**
 
    ```bash
    ibmcloud ce proj delete --name pvs-scale --hard
