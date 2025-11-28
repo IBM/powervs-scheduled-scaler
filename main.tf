@@ -227,13 +227,13 @@ resource "null_resource" "build_function_current_state" {
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
-    function_name    = "${var.prefix}-current-state-fn"
-    source_folder    = "${path.module}/${var.prefix}-current-state-fn"
+    function_name    = "pvs-scale-current-state-fn"
+    source_folder    = "${path.module}/pvs-scale-current-state-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
     fn_secret        = ibm_code_engine_secret.app_secret.name
     cr_secret        = ibm_code_engine_secret.cr_secret.name
 
-    folder_hash = sha256(join("", [for f in fileset("${path.module}/${var.prefix}-current-state-fn", "**") : filemd5("${path.module}/${var.prefix}-current-state-fn/${f}")]))
+    folder_hash = sha256(join("", [for f in fileset("${path.module}/pvs-scale-current-state-fn", "**") : filemd5("${path.module}/pvs-scale-current-state-fn/${f}")]))
   }
 
   provisioner "local-exec" {
@@ -253,7 +253,7 @@ data "ibm_code_engine_function" "current_state_function" {
   depends_on = [null_resource.build_function_current_state]
 
   project_id = ibm_code_engine_project.code_engine_project_instance.project_id
-  name       = "${var.prefix}-current-state-fn"
+  name       = "pvs-scale-current-state-fn"
 }
 
 resource "null_resource" "build_function_scale_down" {
@@ -280,13 +280,13 @@ resource "null_resource" "build_function_scale_down" {
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
     function_name    = "${var.prefix}-down-fn"
-    source_folder    = "${path.module}/${var.prefix}-fn"
+    source_folder    = "${path.module}/pvs-scale-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
     pvs_config_map   = ibm_code_engine_config_map.ce_scale_down_config_map.name
     fn_secret        = ibm_code_engine_secret.app_secret.name
     cr_secret        = ibm_code_engine_secret.cr_secret.name
 
-    folder_hash = sha256(join("", [for f in fileset("${path.module}/${var.prefix}-fn", "**") : filemd5("${path.module}/${var.prefix}-fn/${f}")]))
+    folder_hash = sha256(join("", [for f in fileset("${path.module}/pvs-scale-fn", "**") : filemd5("${path.module}/pvs-scale-fn/${f}")]))
   }
 
   provisioner "local-exec" {
