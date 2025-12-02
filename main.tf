@@ -227,7 +227,7 @@ resource "null_resource" "build_function_current_state" {
     region           = var.ibmcloud_region
     resource_group   = module.resource_group.resource_group_id
     ce_project_id    = ibm_code_engine_project.code_engine_project_instance.project_id
-    function_name    = "pvs-scale-current-state-fn"
+    function_name    = "${var.prefix}-current-state-fn"
     source_folder    = "${path.module}/pvs-scale-current-state-fn"
     fn_config_map    = ibm_code_engine_config_map.app_config_map.name
     fn_secret        = ibm_code_engine_secret.app_secret.name
@@ -253,7 +253,7 @@ data "ibm_code_engine_function" "current_state_function" {
   depends_on = [null_resource.build_function_current_state]
 
   project_id = ibm_code_engine_project.code_engine_project_instance.project_id
-  name       = "pvs-scale-current-state-fn"
+  name       = "${var.prefix}-current-state-fn"
 }
 
 resource "null_resource" "build_function_scale_down" {
