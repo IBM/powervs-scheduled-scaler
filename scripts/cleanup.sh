@@ -3,12 +3,13 @@
 set -e
 
 # Validate input
-if [[ -z "$IBM_CLOUD_API_KEY" || -z "$REGION" || -z "$RESOURCE_GROUP" || -z "$FUNCTION_NAME" || -z "$JSON_FILE" ]]; then
-    echo "IBM_CLOUD_API_KEY, REGION, RESOURCE_GROUP, FUNCTION_NAME and JSON_FILE variable are required"
+if [[ -z "$IBM_CLOUD_API_KEY" || -z "$REGION" || -z "$RESOURCE_GROUP" || -z "$FUNCTION_NAME" || -z "$JSON_FILE" || -z "$PROJECT_ID"]]; then
+    echo "IBM_CLOUD_API_KEY, REGION, RESOURCE_GROUP, FUNCTION_NAME, PROJECT_ID and JSON_FILE variable are required"
     exit 1
 fi
 
 ibmcloud login --apikey "$IBM_CLOUD_API_KEY" -r "$REGION" -g "$RESOURCE_GROUP" --quiet
+ibmcloud code-engine project select --id "$PROJECT_ID" --quiet
 ibmcloud ce fn delete --name "$FUNCTION_NAME" --quiet --force --ignore-not-found
 
 if [ ! -f "$JSON_FILE" ]; then

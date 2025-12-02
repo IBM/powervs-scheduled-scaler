@@ -244,6 +244,7 @@ resource "null_resource" "build_function_current_state" {
       REGION            = self.triggers.region
       RESOURCE_GROUP    = self.triggers.resource_group
       FUNCTION_NAME     = self.triggers.function_name
+      PROJECT_ID        = self.triggers.ce_project_id
       JSON_FILE         = "${path.module}/${self.triggers.function_name}.json"
     }
   }
